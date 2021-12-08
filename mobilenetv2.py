@@ -78,7 +78,7 @@ class MobileNetV2(nn.Layer):
             i = 0 if s > 1 else (i + 1)
             name = 'L%d_B%d' % (stage_index, i)
 
-            setattr(self, name, BottleneckV1(in_c, mid_c, out_c, stride=s, alpha=r, last_gamma=zero_last_gamma))
+            setattr(self, name, BottleneckV1(in_c, mid_c, out_c, stride=s, alpha=r, zero_last_gamma=zero_last_gamma))
 
         # ------------------------------------------------------------------
         self.tail = nn.Sequential(
@@ -124,7 +124,7 @@ class MobileNetV2(nn.Layer):
         return x
            
 
-def mobilenet_v2_100(ratio=0.375, weight_file=None):
+def mobilenet_v2_100(ratio=0.375, weight_file=None, **kwargs):
     net = MobileNetV2(multiplier=1.0, ratio=ratio)
     if weight_file is not None:
         if weight_file.endswith('.h5'):
@@ -133,8 +133,8 @@ def mobilenet_v2_100(ratio=0.375, weight_file=None):
             net.load_dict(paddle.load(weight_file))
     return net
     
-def mobilenet_v2_1125(ratio=0.5, weight_file=None):
-    net = MobileNetV2(multiplier=1.125, ratio=ratio)
+def mobilenet_v2_1125(ratio=0.5, weight_file=None, **kwargs):
+    net = MobileNetV2(multiplier=1.125, ratio=ratio, **kwargs)
     if weight_file is not None:
         if weight_file.endswith('.h5'):
             net = load_from_mxnet_weight(net, weight_file)

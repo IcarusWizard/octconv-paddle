@@ -100,7 +100,8 @@ def main():
     logger.addHandler(filehandler)
     logger.addHandler(streamhandler)
 
-    logger.info(opt)
+    rank = paddle.distributed.get_rank()
+    if rank == 0: logger.info(opt)
 
     batch_size = opt.batch_size
     classes = 1000
@@ -179,7 +180,6 @@ def main():
             no_decay_parameters.append(param)
         elif name.endswith('.weight'):
             if (name[:-6] + '_mean') in  named_parameters.keys():
-                print('add', name)
                 no_decay_parameters.append(param)
             else:
                 normal_parameters.append(param)
@@ -255,9 +255,9 @@ def main():
 
                 train_metric.update(train_metric.compute(logits, labels))
 
-                if opt.log_interval and not (i+1)%opt.log_interval:
+                if rank == 0 and opt.log_interval and not (i+1)%opt.log_interval:
                     logger.info('Epoch[%d] Batch [%d]\tTime used %f (s)\tSpeed: %f samples/sec\tloss=%f\t%s=%f\tlr=%f'%(
-                                epoch, i, batch_size*opt.log_interval/(time.time()-btic), time.time() - start_time,
+                                epoch, i, time.time() - start_time, batch_size*opt.log_interval/(time.time()-btic), 
                                 np.mean(losses), 'acc', train_metric.accumulate(), lr_scheduler.get_lr()))
                     btic = time.time()
 
@@ -265,20 +265,21 @@ def main():
 
             err_top1_val, err_top5_val = test()
 
-            logger.info('[Epoch %d] training: %s=%f'%(epoch, 'acc', train_metric.accumulate()))
-            logger.info('[Epoch %d] speed: %d samples/sec\ttime cost: %f'%(epoch, throughput, time.time()-tic))
-            logger.info('[Epoch %d] validation: err-top1=%f err-top5=%f'%(epoch, err_top1_val, err_top5_val))
+            if rank == 0:
+                logger.info('[Epoch %d] training: %s=%f'%(epoch, 'acc', train_metric.accumulate()))
+                logger.info('[Epoch %d] speed: %d samples/sec\ttime cost: %f'%(epoch, throughput, time.time()-tic))
+                logger.info('[Epoch %d] validation: err-top1=%f err-top5=%f'%(epoch, err_top1_val, err_top5_val))
 
-            if err_top1_val < best_val_score:
+            if rank == 0 and err_top1_val < best_val_score:
                 best_val_score = err_top1_val
                 paddle.save(model.state_dict(), '%s/%.4f-imagenet-%s-%d-best.params'%(save_dir, best_val_score, model_name, epoch))
                 paddle.save(optim.state_dict(), '%s/%.4f-imagenet-%s-%d-best.states'%(save_dir, best_val_score, model_name, epoch))
 
-            if save_frequency and save_dir and (epoch + 1) % save_frequency == 0:
+            if rank == 0 and save_frequency and save_dir and (epoch + 1) % save_frequency == 0:
                 paddle.save(model.state_dict(), '%s/imagenet-%s-%d.params'%(save_dir, model_name, epoch))
                 paddle.save(optim.state_dict(), '%s/imagenet-%s-%d.states'%(save_dir, model_name, epoch))
 
-        if save_frequency and save_dir:
+        if rank == 0 and save_frequency and save_dir:
             paddle.save(model.state_dict(), '%s/imagenet-%s-%d.params'%(save_dir, model_name, opt.num_epochs-1))
             paddle.save(optim.state_dict(), '%s/imagenet-%s-%d.states'%(save_dir, model_name, opt.num_epochs-1))
 

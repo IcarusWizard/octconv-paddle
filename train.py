@@ -69,15 +69,15 @@ def parse_args():
                         help='whether to remove weight decay on bias, and beta/gamma for batchnorm layers.')
     parser.add_argument('--final-drop', type=float, default=0.,
                         help='whether to use dropout before the laster classifier. default: 0 (disable).')
-    parser.add_argument('--save-frequency', type=int, default=10,
+    parser.add_argument('--save-frequency', type=int, default=5,
                         help='frequency of model saving.')
     parser.add_argument('--save-dir', type=str, default='params',
                         help='directory of saved models')
     parser.add_argument('--resume-epoch', type=int, default=0,
                         help='epoch to resume training from.')
-    parser.add_argument('--resume-params', type=str, default='',
+    parser.add_argument('--resume-params', type=str, default=None,
                         help='path of parameters to load from.')
-    parser.add_argument('--resume-states', type=str, default='',
+    parser.add_argument('--resume-states', type=str, default=None,
                         help='path of trainer state to load from.')
     parser.add_argument('--log-interval', type=int, default=50,
                         help='Number of batches to wait before logging.')
@@ -165,6 +165,9 @@ def main():
         model = mobilenet_v2_1125(ratio=opt.ratio, **kwargs)
     else:
         raise NotImplementedError('Unknown model name!')
+
+    if opt.resume_params is not None:
+        model.load_dict(paddle.load(opt.resume_params))
     
     if init_parallel:
         # model = paddle.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -185,7 +188,7 @@ def main():
     elif opt.lr_mode == 'cosine':
         lr_scheduler = paddle.optimizer.lr.CosineAnnealingDecay(opt.lr, opt.num_epochs * steps_per_epoch)
     lr_scheduler = paddle.optimizer.lr.LinearWarmup(lr_scheduler, warmup_steps=opt.warmup_epochs * steps_per_epoch, start_lr=opt.warmup_lr, end_lr=opt.lr)
-    
+
     normal_parameters = []
     no_decay_parameters = []
     named_parameters = dict(model.named_parameters())
@@ -210,6 +213,9 @@ def main():
     ]
 
     optim = paddle.optimizer.Momentum(learning_rate=lr_scheduler, momentum=opt.momentum, parameters=parameters, use_nesterov=True, weight_decay=opt.wd)
+    if opt.resume_states is not None:
+        optim.set_state_dict(paddle.load(opt.resume_states))
+
 
     loss_fn = paddle.nn.loss.CrossEntropyLoss(soft_label=opt.label_smoothing)
     train_metric = paddle.metric.Accuracy((1,))

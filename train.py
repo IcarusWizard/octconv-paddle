@@ -126,7 +126,13 @@ def main():
         T.Normalize([123.68, 116.779, 103.939], [58.393, 57.12, 57.375])
     ])
     train_dataset = ImageNetDataset(opt.data_dir, split='train', transforms=train_transforms)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, drop_last=True)
+    train_sampler = paddle.io.DistributedBatchSampler(
+        dataset=train_dataset,
+        batch_size=opt.batch_size,
+        shuffle=True,
+        drop_last=True
+    )
+    train_loader = DataLoader(train_dataset, batch_sampler=train_sampler, num_workers=num_workers)
 
     val_transforms = T.Compose([
         T.Resize(resize),
@@ -135,7 +141,13 @@ def main():
         T.Normalize([123.68, 116.779, 103.939], [58.393, 57.12, 57.375])
     ])
     val_dataset = ImageNetDataset(opt.data_dir, split='val', transforms=val_transforms)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    val_sampler = paddle.io.DistributedBatchSampler(
+        dataset=val_dataset,
+        batch_size=opt.batch_size,
+        shuffle=False,
+        drop_last=False
+    )
+    val_loader = DataLoader(val_dataset, batch_sampler=val_sampler, num_workers=num_workers)
 
     # create model and optimizor
     model_name = opt.model

@@ -154,7 +154,9 @@ def main():
     else:
         raise NotImplementedError('Unknown model name!')
     
-    if init_parallel: model = paddle.DataParallel(model)
+    if init_parallel:
+        # model = paddle.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+        model = paddle.DataParallel(model)
 
     lr_decay_period = opt.lr_decay_period
     if opt.lr_decay_period > 0:
@@ -226,8 +228,6 @@ def main():
         return 1 - acc_top1.accumulate(), 1 - acc_top5.accumulate()
 
     def train():
-        model.train()
-
         best_val_score = 1
         start_time = time.time()
 
@@ -237,6 +237,7 @@ def main():
             train_metric.reset()
             btic = time.time()
             losses = []
+            model.train()
             for i, (data, labels) in enumerate(iter(train_loader)):
                 if opt.label_smoothing:
                     onthot_labels = paddle.nn.functional.one_hot(labels, classes)

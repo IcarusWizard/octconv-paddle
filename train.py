@@ -187,7 +187,9 @@ def main():
         lr_scheduler = paddle.optimizer.lr.MultiStepDecay(opt.lr, milestones=lr_decay_steps, gamma=opt.lr_decay)
     elif opt.lr_mode == 'cosine':
         lr_scheduler = paddle.optimizer.lr.CosineAnnealingDecay(opt.lr, opt.num_epochs * steps_per_epoch)
-    lr_scheduler = paddle.optimizer.lr.LinearWarmup(lr_scheduler, warmup_steps=opt.warmup_epochs * steps_per_epoch, start_lr=opt.warmup_lr, end_lr=opt.lr)
+    
+    if opt.warmup_epochs > 0:
+        lr_scheduler = paddle.optimizer.lr.LinearWarmup(lr_scheduler, warmup_steps=opt.warmup_epochs * steps_per_epoch, start_lr=opt.warmup_lr, end_lr=opt.lr)
 
     normal_parameters = []
     no_decay_parameters = []

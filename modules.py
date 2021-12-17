@@ -42,7 +42,7 @@ class Map(nn.Layer):
         return (x_h, x_l)
 
 class OctBatchNorm(nn.Layer):
-    def __init__(self, num_channels, alpha, weight_attr=None, bias_attr=None):
+    def __init__(self, num_channels, alpha, weight_attr=nn.initializer.Uniform(-0.07, 0.07), bias_attr=None):
         super().__init__()
         # be compatible to conventional convolution
         c_h, c_l = split_channels(num_channels, alpha)
@@ -67,7 +67,7 @@ class OctConv2D(nn.Layer):
                  alpha_out=0.5,
                  enable_path=((1, 1), (1, 1)), 
                  groups=1, 
-                 weight_attr=None,
+                 weight_attr=nn.initializer.Uniform(-0.07, 0.07),
                  bias_attr=None,
                  upsampling_mode='nearest'):
         super().__init__()

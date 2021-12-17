@@ -66,7 +66,7 @@ class MobileNetV2(nn.Layer):
         last_channels = int(1280 * multiplier) if multiplier > 1.0 else 1280
 
         self.conv1 = nn.Sequential(
-            nn.Conv2D(3, int(32 * multiplier), kernel_size=3, padding=1, stride=2, bias_attr=False),
+            nn.Conv2D(3, int(32 * multiplier), kernel_size=3, padding=1, stride=2, weight_attr=nn.initializer.Uniform(-0.07, 0.07), bias_attr=False),
             nn.BatchNorm2D(int(32 * multiplier)),
             nn.ReLU6()
         )
@@ -82,7 +82,7 @@ class MobileNetV2(nn.Layer):
 
         # ------------------------------------------------------------------
         self.tail = nn.Sequential(
-            nn.Conv2D(out_channels[-1], last_channels, kernel_size=1, bias_attr=False),
+            nn.Conv2D(out_channels[-1], last_channels, kernel_size=1, weight_attr=nn.initializer.Uniform(-0.07, 0.07), bias_attr=False),
             nn.BatchNorm2D(last_channels),
             nn.ReLU6()
         )
@@ -90,7 +90,7 @@ class MobileNetV2(nn.Layer):
         # ------------------------------------------------------------------
         self.avgpool = nn.AdaptiveAvgPool2D((1, 1))
         self.drop = nn.Dropout(final_drop) if final_drop > 0. else nn.Identity()
-        self.classifer = nn.Conv2D(last_channels, classes, kernel_size=1)
+        self.classifer = nn.Conv2D(last_channels, classes, kernel_size=1, weight_attr=nn.initializer.Uniform(-0.07, 0.07))
         self.flat = nn.Flatten()
 
     def _get_channles(self, width, ratio):

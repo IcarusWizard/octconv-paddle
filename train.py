@@ -25,8 +25,8 @@ def parse_args():
                         help='random seed.')
     parser.add_argument('--batch-size', type=int, default=64,
                         help='training batch size per device (CPU/GPU).')
-    parser.add_argument('--dtype', type=str, default='float32',
-                        help='data type for training. default is float32')
+    parser.add_argument('--amp', type=str, default=None,
+                        help='level of amp, default is disable.')
     parser.add_argument('--num-gpus', type=int, default=0,
                         help='number of gpus to use.')
     parser.add_argument('-j', '--num-data-workers', dest='num_workers', default=4, type=int,
@@ -158,9 +158,6 @@ def main():
         'zero_last_gamma' : opt.last_gamma,
     }
 
-    # if opt.dtype != 'float32':
-    #     optimizer_params['multi_precision'] = True
-
     if model_name == 'mobilenet_v2_1125':
         model = mobilenet_v2_1125(ratio=opt.ratio, **kwargs)
     else:
@@ -168,10 +165,6 @@ def main():
 
     if opt.resume_params is not None:
         model.load_dict(paddle.load(opt.resume_params))
-    
-    if init_parallel:
-        # model = paddle.nn.SyncBatchNorm.convert_sync_batchnorm(model)
-        model = paddle.DataParallel(model)
 
     lr_decay_period = opt.lr_decay_period
     if opt.lr_decay_period > 0:
@@ -218,6 +211,15 @@ def main():
     if opt.resume_states is not None:
         optim.set_state_dict(paddle.load(opt.resume_states))
 
+    if opt.amp is not None:
+        scaler = paddle.amp.GradScaler(init_loss_scaling=1024)
+
+    if opt.amp == 'O2':
+        model, optim = paddle.amp.decorate(models=model, optimizers=optim, level='O2', master_weight=None, save_dtype=None)
+
+    if init_parallel:
+        # model = paddle.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+        model = paddle.DataParallel(model)
 
     loss_fn = paddle.nn.loss.CrossEntropyLoss(soft_label=opt.label_smoothing)
     train_metric = paddle.metric.Accuracy((1,))
@@ -265,10 +267,18 @@ def main():
                 else:
                     _labels = labels
 
-                logits = model(data)
-                loss = loss_fn(logits, _labels)
+                if opt.amp is None:
+                    logits = model(data)
+                    loss = loss_fn(logits, _labels)
+                else:
+                    with paddle.amp.auto_cast(level=opt.amp):
+                        logits = model(data)
+                        loss = loss_fn(logits, _labels)
+                    loss = scaler.scale(loss)
+
                 optim.clear_grad()
                 loss.backward()
+                if opt.amp is not None: scaler.minimize(optim, loss)
                 optim.step()
                 lr_scheduler.step()
 
